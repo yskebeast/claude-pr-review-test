@@ -1,4 +1,4 @@
-interface Product {
+export interface Product {
   id: number;
   name: string;
   price: number;
@@ -7,50 +7,49 @@ interface Product {
 
 const products: Product[] = [];
 
-// 商品追加（バリデーションなし）
-export function addProduct(data: any): Product {
-  const product: Product = {
-    id: products.length + 1,
-    name: data.name,
-    price: data.price,
-    stock: data.stock,
-  };
+export function addProduct(data: { name: string; price: number; stock: number }): Product {
+  if (!data.name || typeof data.name !== 'string') {
+    throw new Error('Invalid product name');
+  }
+  if (typeof data.price !== 'number' || data.price < 0) {
+    throw new Error('Invalid product price');
+  }
+  if (typeof data.stock !== 'number' || data.stock < 0) {
+    throw new Error('Invalid product stock');
+  }
+  const id = products.length === 0 ? 1 : Math.max(...products.map((p) => p.id)) + 1;
+  const product: Product = { id, name: data.name, price: data.price, stock: data.stock };
   products.push(product);
   return product;
 }
 
-// 購入処理（競合状態・在庫チェック不足）
 export function purchase(productId: number, quantity: number): boolean {
   const product = products.find((p) => p.id === productId);
-  // 在庫チェックと更新が分離しており競合状態が発生しうる
-  if (product && product.stock >= quantity) {
-    product.stock -= quantity;
-    return true;
+  if (!product) {
+    throw new Error('Product not found');
   }
-  return false;
+  if (product.stock < quantity) {
+    throw new Error('Insufficient stock');
+  }
+  product.stock -= quantity;
+  return true;
 }
 
-// 売上集計（非効率なループ）
-export function getTotalRevenue(): number {
-  let total = 0;
-  for (let i = 0; i < products.length; i++) {
-    for (let j = 0; j < products.length; j++) {
-      if (products[i].id === products[j].id) {
-        total += products[i].price;
-        break;
-      }
-    }
-  }
-  return total;
+export function getTotalListPrice(): number {
+  return products.reduce((sum, p) => sum + p.price, 0);
 }
 
-// 商品検索（型安全性の欠如）
-export function searchProducts(query: any): any[] {
+export function searchProducts(query: string): Product[] {
   return products.filter((p) => p.name.includes(query));
 }
 
-// 割引計算（境界値チェックなし）
 export function applyDiscount(productId: number, discount: number): number {
-  const product = products.find((p) => p.id === productId)!;
+  if (discount < 0 || discount > 1) {
+    throw new Error('Discount must be between 0 and 1');
+  }
+  const product = products.find((p) => p.id === productId);
+  if (!product) {
+    throw new Error('Product not found');
+  }
   return product.price * (1 - discount);
 }
