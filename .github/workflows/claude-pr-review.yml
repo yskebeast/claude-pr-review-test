@@ -1,0 +1,37 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+jobs:
+  review:
+    if: |
+      !github.event.pull_request.draft &&
+      github.actor != 'claude[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: "--max-turns 5 --allowedTools Bash(gh *)"
+          prompt: |
+            PR #${{ github.event.pull_request.number }} のレビューを以下の手順で行ってください。
+
+            1. `gh pr diff ${{ github.event.pull_request.number }}` で差分を取得する
+            2. 差分を確認し、セキュリティ・バグ・コード品質の問題があればまとめる
+            3. `gh pr comment ${{ github.event.pull_request.number }} --body "..."` でレビュー結果を1つのコメントとして投稿する
+
+            レビュー観点：セキュリティ（認証漏れ・SQLインジェクション）、バグ、N+1クエリ、バリデーション不足
+            問題がない場合も「問題なし」のコメントを投稿すること。
